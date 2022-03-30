@@ -1,6 +1,17 @@
 # pybound_mathlib
 Bind [PX4](https://github.com/PX4/PX4-Autopilot) mathlib classes to python for class level testing and visualization.
 
+## What's here?
+Top-level directories:
+
+`px4_platform_common/` contains copies of headers with some basic PX4 defines. Current upstream implementations found [here](https://github.com/PX4/PX4-Autopilot/tree/master/platforms/common/include/px4_platform_common/).
+
+`filter/` contains copies of the `mathlib` filter headers. Current upstream implementations found [here](https://github.com/PX4/PX4-Autopilot/tree/master/src/lib/mathlib/math/filter).
+
+`pybindings/` contains the python bindings for the C++ classes in the `filter/` directory. 
+
+`tests/` contains python based tests and/or visualizations for the various python-bound classes.
+
 ## Prerequisites
 C++11 support
 
@@ -28,7 +39,7 @@ pip3 install -r requirements.txt
 mkdir build
 cd build
 cmake ..
-make pybindings
+make pybound_mathlib
 cd ..
 ```
 
@@ -36,4 +47,3 @@ cd ..
 ```
 python3 tests/second_order_reference_model_test.py
 ```
-

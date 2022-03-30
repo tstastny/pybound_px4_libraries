@@ -35,11 +35,20 @@
  * @file second_order_reference_model.hpp
  *
  * @brief Implementation of a second order system with optional rate feed-forward.
+ * Note that sample time abstraction is not done here. Users should run the filter
+ * at a sufficiently fast rate to achieve the continuous time performance described
+ * by the natural frequency and damping ratio parameters. Tuning of these parameters
+ * will only maintain a given performance for the sampled time for which it was tuned.
  *
  * @author Thomas Stastny <thomas.stastny@auterion.com>
  */
 
 #pragma once
+
+#include <px4_platform_common/defines.h>
+
+namespace math
+{
 
 template <typename T>
 class SecondOrderReferenceModel
@@ -61,7 +70,8 @@ public:
 	/**
 	 * Set the system parameters
 	 *
-	 * Calculates the damping coefficient and spring stiffness
+	 * Calculates the damping coefficient, spring constant, and maximum allowed
+	 * time step based on the natural frequency.
 	 *
 	 * @param[in] natural_freq The desired natural frequency of the system [rad/s]
 	 * @param[in] damping_ratio The desired damping ratio of the system
@@ -69,29 +79,41 @@ public:
 	 */
 	bool setParameters(const float natural_freq, const float damping_ratio)
 	{
-		if (natural_freq < 0.0f || damping_ratio < 0.0f) {
+		if (natural_freq < FLT_EPSILON || damping_ratio < FLT_EPSILON) {
+
+			// Deadzone the resulting constants (will result in zero filter acceleration)
+			spring_constant_ = 0.0f;
+			damping_coefficient_ = 0.0f;
+
+			// Zero natural frequency means our time step is irrelevant
+			max_time_step_ = INFINITY;
+
+			// Fail
 			return false;
 		}
 
-		// note these are "effective" coefficients, as mass coefficient is considered baked in
+		// Note these are "effective" coefficients, as mass coefficient is considered baked in
 		spring_constant_ = natural_freq * natural_freq;
 		damping_coefficient_ = 2.0f * damping_ratio * natural_freq;
+
+		// Based on *conservative nyquist frequency via SAMPLE_RATE_MULTIPLIER
+		max_time_step_ = 2.0f * M_PI_F / (natural_freq * SAMPLE_RATE_MULTIPLIER);
 
 		return true;
 	}
 
 	/**
-	 * @return System state
+	 * @return System state [units]
 	 */
 	const T &getState() const { return filter_state_; }
 
 	/**
-	 * @return System rate
+	 * @return System rate [units/s]
 	 */
 	const T &getRate() const { return filter_rate_; }
 
 	/**
-	 * @return System acceleration
+	 * @return System acceleration [units/s^2]
 	 */
 	const T &getAccel() const { return filter_accel_; }
 
@@ -103,24 +125,35 @@ public:
 	 * system parameters. Sampling time should be sufficiently fast.
 	 *
 	 * @param[in] time_step Time since last sample [s]
-	 * @param[in] state_sample New state sample
-	 * @param[in] rate_sample New rate sample, if provided, otherwise defaults to zero(s)
+	 * @param[in] state_sample New state sample [units]
+	 * @param[in] rate_sample New rate sample, if provided, otherwise defaults to zero(s) [units/s]
 	 */
 	void update(const float time_step, const T &state_sample, const T &rate_sample = T())
 	{
+		if (time_step > max_time_step_) {
+			// time step is too large, reset the filter
+			reset(state_sample, rate_sample);
+			return;
+		}
+
+		if (time_step < 0.0f) {
+			// erroneous input, dont update
+			return;
+		}
+
+		filter_state_ = integrate(filter_state_, filter_rate_, time_step);
+		filter_rate_ = integrate(filter_rate_, filter_accel_, time_step);
+
 		T state_error = state_sample - filter_state_;
 		T rate_error = rate_sample - filter_rate_;
-
 		filter_accel_ = state_error * spring_constant_ + rate_error * damping_coefficient_;
-		filter_rate_ = integrate(filter_rate_, filter_accel_, time_step);
-		filter_state_ = integrate(filter_state_, filter_rate_, time_step);
 	}
 
 	/**
 	 * Reset the system states
 	 *
-	 * @param[in] state Initial state
-	 * @param[in] rate Initial rate, if provided, otherwise defaults to zero(s)
+	 * @param[in] state Initial state [units]
+	 * @param[in] rate Initial rate, if provided, otherwise defaults to zero(s) [units/s]
 	 */
 	void reset(const T &state, const T &rate = T())
 	{
@@ -131,23 +164,34 @@ public:
 
 protected:
 
+	// A conservative multiplier on sample frequency to bound the maximum time step
+	static constexpr float SAMPLE_RATE_MULTIPLIER = 10.0f;
+
+	// (effective, no mass) Spring constant for second order system [s^-2]
 	float spring_constant_{0.0f};
+
+	// (effective, no mass) Damping coefficient for second order system [s^-1]
 	float damping_coefficient_{0.0f};
 
-	T filter_state_{};
-	T filter_rate_{};
-	T filter_accel_{};
+	T filter_state_{}; // [units]
+	T filter_rate_{}; // [units/s]
+	T filter_accel_{}; // [units/s^2]
+
+	// Maximum time step [s]
+	float max_time_step_{INFINITY};
 
 	/**
 	 * Take one integration step using Euler integration
 	 *
-	 * @param[in] last_state
-	 * @param[in] rate
+	 * @param[in] last_state [units]
+	 * @param[in] rate [units/s]
 	 * @param[in] time_step Time since last sample [s]
-	 * @return The next state
+	 * @return The next state [units]
 	 */
 	T integrate(const T &last_state, const T &rate, const float time_step) const
 	{
 		return last_state + rate * time_step;
 	}
 };
+
+} // namespace math
