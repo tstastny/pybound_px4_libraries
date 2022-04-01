@@ -46,11 +46,12 @@
 #pragma once
 
 #include <px4_platform_common/defines.h>
+#include <matrix/SquareMatrix.hpp>
 
 namespace math
 {
 
-template <typename T>
+template<typename T>
 class SecondOrderReferenceModel
 {
 public:
@@ -97,7 +98,7 @@ public:
 		damping_coefficient_ = 2.0f * damping_ratio * natural_freq;
 
 		// Based on *conservative nyquist frequency via SAMPLE_RATE_MULTIPLIER
-		max_time_step_ = 2.0f * M_PI_F / (natural_freq * SAMPLE_RATE_MULTIPLIER);
+		max_time_step_ = 2.0f * M_PI_F / (natural_freq * kSampleRateMultiplier);
 
 		return true;
 	}
@@ -141,12 +142,8 @@ public:
 			return;
 		}
 
-		filter_state_ = integrate(filter_state_, filter_rate_, time_step);
-		filter_rate_ = integrate(filter_rate_, filter_accel_, time_step);
-
-		T state_error = state_sample - filter_state_;
-		T rate_error = rate_sample - filter_rate_;
-		filter_accel_ = state_error * spring_constant_ + rate_error * damping_coefficient_;
+		// take a step forward, update the remaining filter states
+		integrateStates(time_step, state_sample, rate_sample);
 	}
 
 	/**
@@ -165,7 +162,7 @@ public:
 protected:
 
 	// A conservative multiplier on sample frequency to bound the maximum time step
-	static constexpr float SAMPLE_RATE_MULTIPLIER = 10.0f;
+	static constexpr float kSampleRateMultiplier = 10.0f;
 
 	// (effective, no mass) Spring constant for second order system [s^-2]
 	float spring_constant_{0.0f};
@@ -181,16 +178,47 @@ protected:
 	float max_time_step_{INFINITY};
 
 	/**
-	 * Take one integration step using Euler integration
+	 * Take one integration step using Euler-forward integration
 	 *
-	 * @param[in] last_state [units]
-	 * @param[in] rate [units/s]
 	 * @param[in] time_step Time since last sample [s]
-	 * @return The next state [units]
+	 * @param[in] state_sample [units]
+	 * @param[in] rate_sample [units/s]
 	 */
-	T integrate(const T &last_state, const T &rate, const float time_step) const
+	void integrateStates(const float time_step, const T &state_sample, const T &rate_sample)
 	{
-		return last_state + rate * time_step;
+	    // state matrix
+	    matrix::SquareMatrix<float, 2> state_matrix;
+	    state_matrix(0, 0) = 1.0f;
+	    state_matrix(0, 1) = time_step;
+	    state_matrix(1, 0) = -spring_constant_ * time_step;
+	    state_matrix(1, 1) = -damping_coefficient_ * time_step + 1.0f;
+
+	    // input matrix
+	    matrix::SquareMatrix<float, 2> input_matrix;
+	    input_matrix(0, 0) = 0.0f;
+	    input_matrix(0, 1) = 0.0f;
+	    input_matrix(1, 0) = spring_constant_ * time_step;
+	    input_matrix(1, 1) = damping_coefficient_ * time_step;
+
+        // discrete state transition
+	    filter_state_ = state_matrix(0, 0) * filter_state_ + state_matrix(0, 1) * filter_rate_ + input_matrix(0, 0) * state_sample + input_matrix(0, 1) * rate_sample;
+	    filter_rate_ = state_matrix(1, 0) * filter_state_ + state_matrix(1, 1) * filter_rate_ + input_matrix(1, 0) * state_sample + input_matrix(1, 1) * rate_sample;
+
+	    // instantaneous acceleration calculated for output
+	    filter_accel_ = calculateInstantaneousAcceleration(state_sample, rate_sample);
+	}
+
+	/**
+	 * Calculate the instantaneous acceleration of the system
+	 *
+	 * @param[in] state_sample [units]
+	 * @param[in] rate_sample [units/s]
+	 */
+	T calculateInstantaneousAcceleration(const T &state_sample, const T &rate_sample) const
+	{
+	    const T state_error = state_sample - filter_state_;
+        const T rate_error = rate_sample - filter_rate_;
+        return state_error * spring_constant_ + rate_error * damping_coefficient_;
 	}
 };
 

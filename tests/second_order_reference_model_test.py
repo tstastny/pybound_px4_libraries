@@ -1,6 +1,6 @@
 # get the relative import path
 import sys
-sys.path.append('../build')  # assumes people followed the readme..
+sys.path.append('../build')  # assumes the readme was followed..
 
 # import the pybind module
 from pybound_mathlib import SecondOrderReferenceModel

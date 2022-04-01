@@ -4,8 +4,10 @@ project(pybound_mathlib
     LANGUAGES CXX)
 
 include_directories(${CMAKE_SOURCE_DIR}
+    matrix/
+    filter/
     px4_platform_common/
-    filter/)
+    )
 
 add_subdirectory(pybind11)
 
