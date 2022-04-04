@@ -8,6 +8,8 @@ Top-level directories:
 
 `filter/` contains copies of the `mathlib` filter headers. Current upstream implementations found [here](https://github.com/PX4/PX4-Autopilot/tree/master/src/lib/mathlib/math/filter).
 
+`matrix/` contains copies of the `mathlib` matrix headers. Current upstream implementations found [here](https://github.com/PX4/PX4-Autopilot/tree/master/src/lib/mathlib/math/matrix/matrix).
+
 `pybindings/` contains the python bindings for the C++ classes in the `filter/` directory. 
 
 `tests/` contains python based tests and/or visualizations for the various python-bound classes.
@@ -44,6 +46,8 @@ cd ..
 ```
 
 ## Run the tests
+e.g.
 ```
-python3 tests/second_order_reference_model_test.py
+cd tests/
+python3 second_order_reference_model_discretization_method_test.py
 ```

@@ -5,9 +5,14 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(pybound_mathlib, m)
 {
+    py::enum_<math::SecondOrderReferenceModel<float>::DiscretizationMethod>(m, "DiscretizationMethod")
+        .value("kForwardEuler", math::SecondOrderReferenceModel<float>::DiscretizationMethod::kForwardEuler)
+        .value("kBilinear", math::SecondOrderReferenceModel<float>::DiscretizationMethod::kBilinear);
+
     py::class_<math::SecondOrderReferenceModel<float>>(m, "SecondOrderReferenceModel")
         .def(py::init<>())
         .def(py::init<const float &, const float &>())
+        .def("setDiscretizationMethod", &math::SecondOrderReferenceModel<float>::setDiscretizationMethod)
         .def("setParameters", &math::SecondOrderReferenceModel<float>::setParameters)
         .def("getState", &math::SecondOrderReferenceModel<float>::getState)
         .def("getRate", &math::SecondOrderReferenceModel<float>::getRate)
