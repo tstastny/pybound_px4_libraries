@@ -1,9 +1,9 @@
 #include <pybind11/pybind11.h>
-#include <filter/second_order_reference_model.hpp>
+#include <lib/mathlib/math/filter/second_order_reference_model.hpp>
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(pybound_mathlib, m)
+PYBIND11_MODULE(mathlib, m)
 {
     py::enum_<math::SecondOrderReferenceModel<float>::DiscretizationMethod>(m, "DiscretizationMethod")
         .value("kForwardEuler", math::SecondOrderReferenceModel<float>::DiscretizationMethod::kForwardEuler)

@@ -8,7 +8,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 # import the pybind module
-from pybound_mathlib import SecondOrderReferenceModel, DiscretizationMethod
+from mathlib import SecondOrderReferenceModel, DiscretizationMethod
 
 
 # simulate a random walk

@@ -10,7 +10,7 @@ import scipy.linalg as scp_linalg
 # import sympy as sp
 
 # import the pybind module
-from pybound_mathlib import SecondOrderReferenceModel, DiscretizationMethod
+from mathlib import SecondOrderReferenceModel, DiscretizationMethod
 
 
 # symbolic derivation of bilinear transform (for sanity check)

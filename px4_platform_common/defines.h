@@ -139,4 +139,4 @@ __END_DECLS
 #define M_DEG_TO_RAD 		0.017453292519943295
 #define M_RAD_TO_DEG 		57.295779513082323
 
-#define FLT_EPSILON         0.01f
+//#define FLT_EPSILON         0.01f
